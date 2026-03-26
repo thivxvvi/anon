@@ -31,13 +31,6 @@ body::before {
   pointer-events: none;
 }
 
-.container {
-  position: relative;
-  z-index: 1;
-  max-width: 560px;
-  width: 100%;
-}
-
 /* Make sure parent is positioned */
 .parent {
   position: relative;
@@ -78,6 +71,13 @@ body::before {
   .gif-wrapper img {
     width: 200px;
   }
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+  width: 100%;
 }
 
 
