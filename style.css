@@ -54,7 +54,7 @@ body::before {
 /* 📱 Mobile tuning */
 @media (max-width: 768px) {
   .gif-wrapper {
-    top: 10vh;
+    top: 12vh;
   }
 
   .gif-wrapper img {
