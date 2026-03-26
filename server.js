@@ -1,19 +1,29 @@
+require('dotenv').config(); // Load env variables
+
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const ADMIN_PASSWORD = 'th123';
 
-// ─── PUT YOUR MONGODB URL HERE ───────────────────────────────────────────────
-const MONGODB_URL = process.env.MONGODB_URL || 'mongodb://tristanhernandez006:th123@freedomwall-shard-00-00.y8wem.mongodb.net:27017,freedomwall-shard-00-01.y8wem.mongodb.net:27017,freedomwall-shard-00-02.y8wem.mongodb.net:27017/?ssl=true&replicaSet=atlas-2ro5ny-shard-0&authSource=admin&appName=Freedomwall';
-// ─────────────────────────────────────────────────────────────────────────────
+// Use env variables
+const PORT = process.env.PORT || 3000;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const MONGODB_URL = process.env.MONGODB_URL;
+
+// Validate env variables (important!)
+if (!ADMIN_PASSWORD || !MONGODB_URL) {
+  console.error('❌ Missing environment variables. Check your .env file.');
+  process.exit(1);
+}
 
 // Connect to MongoDB
 mongoose.connect(MONGODB_URL, { dbName: 'anon' })
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => { console.error('MongoDB connection error:', err); process.exit(1); });
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  });
 
 // Message schema
 const messageSchema = new mongoose.Schema({
@@ -23,44 +33,80 @@ const messageSchema = new mongoose.Schema({
 
 const Message = mongoose.model('Message', messageSchema);
 
+// Middleware
 app.use(express.json());
-app.use(express.static(__dirname)); // Serve index.html, messages.html, style.css
+app.use(express.static(path.join(__dirname))); // safer path
 
-// POST /api/messages — send an anonymous message
+// ─────────────────────────────────────────
+// ROUTES
+// ─────────────────────────────────────────
+
+// POST — send message
 app.post('/api/messages', async (req, res) => {
-  const { content } = req.body || {};
-  if (!content || !content.trim()) {
-    return res.status(400).json({ error: 'Message content cannot be empty' });
+  try {
+    const { content } = req.body || {};
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Message content cannot be empty' });
+    }
+
+    await Message.create({ content: content.trim() });
+
+    res.status(201).json({ success: true, message: 'Message sent!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-  await Message.create({ content: content.trim() });
-  res.status(201).json({ success: true, message: 'Message sent!' });
 });
 
-// GET /api/messages?password=th123 — get all messages (admin only)
+// GET — admin fetch messages
 app.get('/api/messages', async (req, res) => {
-  if (req.query.password !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    if (req.query.password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const messages = await Message.find().sort({ createdAt: 1 });
+
+    res.json({
+      messages: messages.map(m => ({
+        id: m._id,
+        content: m.content,
+        createdAt: m.createdAt.toISOString()
+      }))
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-  const messages = await Message.find().sort({ createdAt: 1 });
-  res.json({
-    messages: messages.map(m => ({
-      id: m._id,
-      content: m.content,
-      createdAt: m.createdAt.toISOString()
-    }))
-  });
 });
 
-// DELETE /api/messages/:id?password=th123 — delete a message (admin only)
+// DELETE — admin delete message
 app.delete('/api/messages/:id', async (req, res) => {
-  if (req.query.password !== ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    if (req.query.password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const deleted = await Message.findByIdAndDelete(req.params.id);
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    res.json({ success: true, message: 'Message deleted' });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-  await Message.findByIdAndDelete(req.params.id);
-  res.json({ success: true, message: 'Message deleted' });
 });
 
+// ─────────────────────────────────────────
+// START SERVER
+// ─────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-  console.log(`Admin panel: http://localhost:${PORT}/messages.html`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🔐 Admin panel: http://localhost:${PORT}/messages.html`);
 });
