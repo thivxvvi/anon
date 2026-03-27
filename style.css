@@ -31,6 +31,15 @@ body::before {
   pointer-events: none;
 }
 
+.container {
+  width: 100%;
+  max-width: 500px;   /* controls card width */
+  margin: 0 auto;     /* centers horizontally */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* ensures children center */
+}
+
 /* Make sure parent is positioned */
 .parent {
   position: relative;
